@@ -1,7 +1,7 @@
-from ip_cam_capture import IpCamCapture
+from ip_cam_capture import IpCamAppCapture
 
 ip = '192.168.1.171'
 port = 8080
 
-cap = IpCamCapture(ip, port)
+cap = IpCamAppCapture(ip, port)
 cap.run()

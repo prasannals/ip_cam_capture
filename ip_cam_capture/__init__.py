@@ -4,31 +4,24 @@ import cv2
 import os
 from time import time
 from fastai.vision import load_learner, open_image
+from functools import partial
+
+def get_img_from_url(url):
+    response = requests.get(url)
+    img = np.array(bytearray(response.content), dtype=np.uint8)
+    img = cv2.imdecode(img, -1)
+    return img
 
 class IpCamCapture():
-    def __init__(self, ip, port_number, out_dir = './IpCamCapture/', window_title = 'IpCamCapture', quit_key='q', f_fmt='.jpg'):
-        '''
-        ip :: string - ip address of the android phone on which Ip Camera app is running
-        port_number :: int - port number used by Ip Camera app on the phone
-        '''
-        if ip is None or port_number is None or ip.strip() == '' or port_number < 0:
-            raise AttributeError('Ip cannot be none or empty. port number cannot be None or less than 0.')
-        self.shot_url = f'http://{ip}:{str(port_number)}/shot.jpg'
-        self.WINDOW_TITLE = window_title
+    def __init__(self, get_image, out_dir = './IpCamCapture/', window_title = 'IpCamCapture', quit_key='q', f_fmt='.jpg'):
+        self.get_image, self.WINDOW_TITLE = get_image, window_title
+        self.out_dir, self.f_fmt = out_dir, f_fmt
         self.quit_key = quit_key if len(quit_key) == 1 else 'q'
         os.makedirs(out_dir, exist_ok=True)
-        self.out_dir = out_dir
-        self.f_fmt = f_fmt
-
-    def get_img_from_url(self):
-        response = requests.get(self.shot_url)
-        img = np.array(bytearray(response.content), dtype=np.uint8)
-        img = cv2.imdecode(img, -1)
-        return img
 
     def run(self):
         while True:
-            img = self.get_img_from_url()
+            img = self.get_image()
             cv2.imshow(self.WINDOW_TITLE, img)
             
             keyPressed = chr(cv2.waitKey(2) & 0xFF)
@@ -44,6 +37,37 @@ class IpCamCapture():
 
     def get_fname(self):
         return str(time()).replace('.', '_')
+
+def image_from_cv(read):
+    # return None if ret == False else return frame
+    ret, frame = read()
+    return frame if ret else None
+
+class WansViewCapture(IpCamCapture):
+    def __init__(self, username, password, ip, out_dir = './IpCamCapture/', window_title = 'IpCamCapture', quit_key='q', f_fmt='.jpg'):
+        # TODO - Add parameter validation
+        URL = f'rtsp://{username}:{password}@{ip}/live/ch0'
+        cap = cv2.VideoCapture(URL)
+        super().__init__(partial(image_from_cv, read=cap.read), out_dir=out_dir, 
+            window_title=window_title, quit_key=quit_key,f_fmt=f_fmt)
+
+
+class ImageLinkCapture(IpCamCapture):
+    def __init__(self, image_url, out_dir = './IpCamCapture/', window_title = 'IpCamCapture', quit_key='q', f_fmt='.jpg'):
+        super().__init__(partial(get_img_from_url, url=image_url), out_dir=out_dir, window_title=window_title, 
+            quit_key=quit_key,f_fmt=f_fmt)
+
+class IpCamAppCapture(ImageLinkCapture):
+    def __init__(self, ip, port_number, out_dir = './IpCamCapture/', window_title = 'IpCamCapture', quit_key='q', f_fmt='.jpg'):
+        '''
+        ip :: string - ip address of the android phone on which Ip Camera app is running
+        port_number :: int - port number used by Ip Camera app on the phone
+        '''
+        if ip is None or port_number is None or ip.strip() == '' or port_number < 0:
+            raise AttributeError('Ip cannot be none or empty. port number cannot be None or less than 0.')
+        self.shot_url = f'http://{ip}:{str(port_number)}/shot.jpg'
+        super().__init__(self.shot_url, out_dir=out_dir, window_title=window_title, 
+            quit_key=quit_key,f_fmt=f_fmt)
 
 class IpCamPredict():
     def __init__(self, ip, port_number, path, export_fname='export.pkl', save_img=True, save_dir='./IpCamPredict/', quit_key='q', pred_loc=(20,20),
