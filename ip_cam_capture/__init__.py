@@ -43,14 +43,22 @@ def image_from_cv(read):
     ret, frame = read()
     return frame if ret else None
 
-class WansViewCapture(IpCamCapture):
+class OpenCVCapture(IpCamCapture):
+    def __init__(self, capture, out_dir = './IpCamCapture/', window_title = 'IpCamCapture', quit_key='q', f_fmt='.jpg'):
+        '''
+        capture - instance of OpenCV cv2.VideoCapture 
+        '''
+        super().__init__(partial(image_from_cv, read=capture.read), out_dir=out_dir, 
+            window_title=window_title, quit_key=quit_key,f_fmt=f_fmt)
+
+
+class WansViewCapture(OpenCVCapture):
     def __init__(self, username, password, ip, out_dir = './IpCamCapture/', window_title = 'IpCamCapture', quit_key='q', f_fmt='.jpg'):
         # TODO - Add parameter validation
         URL = f'rtsp://{username}:{password}@{ip}/live/ch0'
         cap = cv2.VideoCapture(URL)
-        super().__init__(partial(image_from_cv, read=cap.read), out_dir=out_dir, 
-            window_title=window_title, quit_key=quit_key,f_fmt=f_fmt)
-
+        super().__init__(cap, out_dir=out_dir, window_title=window_title, 
+            quit_key=quit_key,f_fmt=f_fmt)
 
 class ImageLinkCapture(IpCamCapture):
     def __init__(self, image_url, out_dir = './IpCamCapture/', window_title = 'IpCamCapture', quit_key='q', f_fmt='.jpg'):
